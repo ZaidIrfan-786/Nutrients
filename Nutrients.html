@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Nutrient & Pacing Curve Dashboard</title>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="Nutrients.css">
+</head>
+<body>
+
+    <div id="root" class="dashboard-container"></div>
+
+    <script type="text/babel">
+        function Dashboard() {
+            const [gender, setGender] = React.useState('Male');
+            const [fitness, setFitness] = React.useState('Active');
+            const [weight, setWeight] = React.useState(75);
+            const [height, setHeight] = React.useState(175);
+            const [age, setAge] = React.useState(30);
+
+            // Calculations
+            const fitnessMultiplier = fitness === 'Elite' ? 2.0 : fitness === 'Active' ? 1.6 : fitness === 'Moderate' ? 1.4 : 1.2;
+            const dailyTarget = Math.round(weight * fitnessMultiplier);
+            const perMeal = (dailyTarget / 4).toFixed(1);
+            
+            const baseCal = gender === 'Male' 
+                ? 88.36 + (13.4 * weight) + (4.8 * height) - (5.7 * age) 
+                : 447.6 + (9.2 * weight) + (3.1 * height) - (4.3 * age);
+            const activityMult = fitness === 'Sedentary' ? 1.2 : fitness === 'Moderate' ? 1.55 : fitness === 'Active' ? 1.725 : 1.9;
+            const energyTarget = Math.round(baseCal * activityMult);
+
+            // --- DYNAMIC CURVE GENERATOR ---
+            const intensityFactor = (dailyTarget / 300);
+            
+            const peak1Y = Math.max(10, 60 - (intensityFactor * 25));
+            const peak2Y = Math.max(10, 55 - (intensityFactor * 25));
+            const peak3Y = Math.max(10, 50 - (intensityFactor * 20));
+            const peak4Y = Math.max(10, 45 - (intensityFactor * 25));
+            const troughY = 165 - (intensityFactor * 15);
+
+            const curvePath = `
+                M 0,170 
+                C 80,170 140,170 200,${peak1Y} 
+                C 250,${troughY} 290,${troughY} 330,${peak2Y} 
+                C 380,${troughY} 420,${troughY} 470,${peak3Y} 
+                C 530,${troughY} 590,${troughY} 640,${peak4Y} 
+                C 700,0 740,130 800,120
+            `;
+
+            const areaPath = `${curvePath} L 800,170 L 0,170 Z`;
+
+            const nodes = [
+                { cx: 200, cy: peak1Y },
+                { cx: 330, cy: peak2Y },
+                { cx: 470, cy: peak3Y },
+                { cx: 640, cy: peak4Y }
+            ];
+
+            return (
+                <div className="dashboard-container">
+                    {/* Header */}
+                    <div className="header-flex">
+                        <div className="title-area">
+                            <h1>
+                                <span className="pulse-dot"></span>
+                                Metabolism & Pacing Engine
+                            </h1>
+                            <p>Real-time nutritional absorption tracking and target adjustment</p>
+                        </div>
+                    </div>
+
+                    {/* Top Summary Bar */}
+                    <div className="glass-panel summary-grid">
+                        <div>
+                            <p className="metric-label">Daily Target</p>
+                            <p className="metric-value">{dailyTarget} <span className="metric-unit">g</span></p>
+                        </div>
+                        <div>
+                            <p className="metric-label">Per Meal (x4)</p>
+                            <p className="metric-value">{perMeal} <span className="metric-unit">g</span></p>
+                        </div>
+                        <div>
+                            <p className="metric-label">Energy Target</p>
+                            <p className="metric-value">{energyTarget} <span className="metric-unit">kcal</span></p>
+                        </div>
+                    </div>
+
+                    {/* Controls Panel */}
+                    <div className="glass-panel controls-grid">
+                        <div className="control-group">
+                            <label>Gender</label>
+                            <div className="toggle-container">
+                                {['Male', 'Female'].map((g) => (
+                                    <button
+                                        key={g}
+                                        onClick={() => setGender(g)}
+                                        className={`toggle-btn ${gender === g ? 'active' : ''}`}
+                                    >
+                                        {g}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="control-group">
+                            <label>Fitness Level</label>
+                            <div className="toggle-container">
+                                {['Sedentary', 'Moderate', 'Active', 'Elite'].map((f) => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setFitness(f)}
+                                        className={`toggle-btn ${fitness === f ? 'active' : ''}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="sliders-row" style={{ gridColumn: '1 / -1' }}>
+                            <div className="slider-box">
+                                <div className="slider-header">
+                                    <span className="slider-name">Weight</span>
+                                    <span className="slider-val">{weight} kg</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="40" 
+                                    max="150" 
+                                    value={weight} 
+                                    onChange={(e) => setWeight(Number(e.target.value))}
+                                />
+                            </div>
+
+                            <div className="slider-box">
+                                <div className="slider-header">
+                                    <span className="slider-name">Height</span>
+                                    <span className="slider-val">{height} cm</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="130" 
+                                    max="220" 
+                                    value={height} 
+                                    onChange={(e) => setHeight(Number(e.target.value))}
+                                />
+                            </div>
+
+                            <div className="slider-box">
+                                <div className="slider-header">
+                                    <span className="slider-name">Age</span>
+                                    <span className="slider-val">{age} yrs</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="15" 
+                                    max="80" 
+                                    value={age} 
+                                    onChange={(e) => setAge(Number(e.target.value))}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Pacing Curve Graph Card */}
+                    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="graph-panel-header">
+                            <span className="graph-title-sub">Optimal Absorption (g) — Peak Scale: {dailyTarget}g</span>
+                            <span className="graph-title-main">Pacing Curve</span>
+                        </div>
+
+                        <div className="svg-container">
+                            <svg viewBox="0 0 800 200" className="svg-element">
+                                <defs>
+                                    <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#e11d48" stopOpacity="0.4" />
+                                        <stop offset="100%" stopColor="#e11d48" stopOpacity="0.0" />
+                                    </linearGradient>
+                                </defs>
+
+                                {[200, 400, 600].map((x) => (
+                                    <line key={x} x1={x} y1="0" x2={x} y2="170" stroke="rgba(255,255,255,0.05)" strokeDasharray="4 4" />
+                                ))}
+
+                                <path 
+                                    d={areaPath} 
+                                    fill="url(#curveGradient)" 
+                                    className="smooth-path"
+                                />
+
+                                <path 
+                                    d={curvePath} 
+                                    fill="none" 
+                                    stroke="#e11d48" 
+                                    strokeWidth="3.5" 
+                                    strokeLinecap="round"
+                                    className="smooth-path"
+                                />
+
+                                {nodes.map((node, idx) => (
+                                    <g key={idx}>
+                                        <circle cx={node.cx} cy={node.cy} r="14" fill="#e11d48" fillOpacity="0.2" className="ping-node" />
+                                        <circle cx={node.cx} cy={node.cy} r="7" fill="#0b0f17" stroke="#e11d48" strokeWidth="3" />
+                                    </g>
+                                ))}
+                            </svg>
+                        </div>
+
+                        <div className="axis-labels">
+                            <span>4:00</span>
+                            <span>8:00</span>
+                            <span>12:00</span>
+                            <span>16:00</span>
+                            <span>20:00</span>
+                            <span>24:00</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<Dashboard />);
+    </script>
+</body>
+</html>
